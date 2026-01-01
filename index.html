@@ -57,14 +57,14 @@
   }
 
   td {
-    height: 90px;
-    border-radius: 14px;
+    height: 120px;
+    border-radius: 18px;
     text-align: center;
     font-weight: bold;
-    font-size: 20px;
+    font-size: 26px;
     cursor: pointer;
     transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.2s;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.35);
   }
 
   td:active {
@@ -146,7 +146,7 @@
 </div>
 
 <div class="container">
-  <div>
+  <div style="grid-column:1 / -1">
     <div class="controls">
       <input id="artist1" placeholder="アーティスト1" />
       <input id="artist2" placeholder="アーティスト2" />
@@ -155,12 +155,12 @@
       <button onclick="generateBingo()">ビンゴ生成</button>
     </div>
 
-    <table id="bingo"></table>
-  </div>
+    <div class="conditions-box" id="preConditions">
+      <strong>条件リスト（生成前のみ表示）</strong>
+      <ul id="conditionList"></ul>
+    </div>
 
-  <div class="conditions-box">
-    <strong>条件リスト</strong>
-    <ul id="conditionList"></ul>
+    <table id="bingo"></table>
   </div>
 </div>
 
@@ -188,6 +188,8 @@ const baseConditions = [
 ];
 
 function generateBingo() {
+  // 条件リストは生成後に非表示
+  document.getElementById("preConditions").style.display = "none";
   const table = document.getElementById("bingo");
   table.innerHTML = "";
   document.getElementById("bingoModal").style.display = "none";
