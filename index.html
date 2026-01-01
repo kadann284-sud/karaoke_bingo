@@ -187,7 +187,24 @@ const baseConditions = [
   { name: "日本語で2文字以下の曲", cat: "cat-lang" }
 ];
 
+function renderConditionList(extraArtists = []) {
+  const ul = document.getElementById("conditionList");
+  if (!ul) return;
+  ul.innerHTML = "";
+  const list = [...baseConditions, ...extraArtists.map(a => ({ name: a }))];
+  list.forEach(c => {
+    const li = document.createElement("li");
+    li.textContent = c.name;
+    ul.appendChild(li);
+  });
+}
+
+// 初期表示（生成前）
+renderConditionList();
+
 function generateBingo() {
+  // 条件リストは生成後に非表示
+  document.getElementById("preConditions").style.display = "none";
   // 条件リストは生成後に非表示
   document.getElementById("preConditions").style.display = "none";
   const table = document.getElementById("bingo");
