@@ -152,6 +152,7 @@
       <input id="artist2" placeholder="アーティスト2" />
       <input id="artist3" placeholder="アーティスト3" />
       <input id="startScore" type="number" value="80" />
+      <input id="playerCount" type="number" min="1" value="2" placeholder="遊ぶ人数" />
       <button onclick="generateBingo()">ビンゴ生成</button>
     </div>
 
@@ -207,6 +208,11 @@ function generateBingo() {
   const pre = document.getElementById("preConditions");
   if (pre) pre.style.display = "none";
 
+  const playerCount = Number(document.getElementById("playerCount").value) || 1;
+  // 条件リストは生成後に非表示
+  const pre = document.getElementById("preConditions");
+  if (pre) pre.style.display = "none";
+
   const table = document.getElementById("bingo");
   table.innerHTML = "";
   document.getElementById("bingoModal").style.display = "none";
@@ -217,6 +223,11 @@ function generateBingo() {
 
   const artists = [artist1.value, artist2.value, artist3.value].filter(a => a);
   let conditions = [...baseConditions, ...artists.map(a => ({ name: a, cat: "cat-artist" }))];
+
+  // 2人以下なら「一人だけ知らない曲」を除外
+  if (playerCount <= 2) {
+    conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
+  }(a => ({ name: a, cat: "cat-artist" }))];
 
   // 条件を必ず1回以上使う
   let pool = [...conditions];
