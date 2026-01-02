@@ -1,164 +1,244 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>カラオケビンゴ</title>
+
 <style>
-    body {
-        font-family: sans-serif;
-        background: #111;
-        color: #fff;
-        text-align: center;
-    }
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: linear-gradient(135deg, #1e1e2f, #2b2b45);
+  color: #fff;
+  margin: 0;
+  padding: 16px;
+}
 
-    .controls {
-        margin: 20px;
-    }
+h1 { text-align: center; margin-bottom: 8px; }
 
-    input, button {
-        font-size: 16px;
-        padding: 6px 10px;
-        margin: 5px;
-    }
+.container {
+  max-width: 900px;
+  margin: auto;
+}
 
-    #conditionList {
-        margin: 20px auto;
-        width: 300px;
-        text-align: left;
-        font-size: 14px;
-        background: #222;
-        padding: 10px;
-        border-radius: 8px;
-    }
+.controls, .description, .conditions-box {
+  background: rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
 
-    #bingo {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-        max-width: 600px;
-        margin: 30px auto;
-    }
+.controls input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: none;
+}
 
-    .cell {
-        background: #333;
-        border-radius: 10px;
-        padding: 15px;
-        min-height: 100px;
-        font-size: 18px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
+button {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #ff7a18, #ffb347);
+  color: #000;
+  cursor: pointer;
+}
 
-    .score {
-        font-weight: bold;
-        font-size: 22px;
-    }
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 12px;
+}
 
-    .range {
-        font-size: 12px;
-        opacity: 0.8;
-    }
+td {
+  height: 150px;
+  border-radius: 18px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 26px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+}
+
+td.marked {
+  background: #00e676 !important;
+  color: #000;
+}
+
+.range {
+  display: block;
+  font-size: 12px;
+  font-weight: normal;
+  margin-top: 4px;
+}
+
+/* カテゴリ色 */
+.cat-release { background: #ff8a80; }
+.cat-title   { background: #82b1ff; }
+.cat-lang    { background: #b9f6ca; }
+.cat-artist  { background: #ffd180; }
+.cat-other   { background: #e1bee7; }
+
+/* モーダル */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: #fff;
+  color: #000;
+  padding: 24px 32px;
+  border-radius: 16px;
+  font-size: 32px;
+  font-weight: bold;
+}
 </style>
 </head>
+
 <body>
+<h1>🎤 カラオケビンゴ</h1>
 
-<h1>🎤 カラオケビンゴ 🎤</h1>
-
-<div class="controls">
-    遊ぶ人数：
-    <input type="number" id="players" min="2" value="4">
-    <button onclick="generateBingo()">ビンゴ生成</button>
+<div class="description">
+<p>
+開始点数とアーティストを入力してビンゴ生成。<br>
+条件と点数が一致したらマスをタップしてください。
+</p>
 </div>
 
-<div id="conditionList"></div>
-<div id="bingo"></div>
+<div class="container">
+  <div class="controls">
+    <input id="artist1" placeholder="アーティスト1">
+    <input id="artist2" placeholder="アーティスト2">
+    <input id="artist3" placeholder="アーティスト3">
+    <input id="startScore" type="number" value="80">
+    <input id="playerCount" type="number" min="1" value="2" placeholder="遊ぶ人数">
+    <button onclick="generateBingo()">ビンゴ生成</button>
+  </div>
+
+  <div class="conditions-box" id="preConditions">
+    <strong>条件リスト（生成前）</strong>
+    <ul id="conditionList"></ul>
+  </div>
+
+  <table id="bingo"></table>
+</div>
+
+<div class="modal" id="bingoModal">
+  <div class="modal-content">ビンゴ！</div>
+</div>
 
 <script>
+const GYO = ["あ","か","さ","た","な","は","ま","や","ら","わ"];
+const DAN = ["あ","い","う","え","お"];
+
 const baseConditions = [
-    { text: "アーティスト指定", color: "#ff7675" },
-    { text: "バラード", color: "#74b9ff" },
-    { text: "アップテンポ", color: "#55efc4" },
-    { text: "みんな知っている曲", color: "#ffeaa7" },
-    { text: "一人だけ知らない曲", color: "#fd79a8", minPlayers: 3 },
-    { text: "カラオケランキング上位曲", color: "#a29bfe" },
-    { text: "アーティスト名が〇行 or □段", color: "#fab1a0" },
-    { text: "曲名が〇行 or □段", color: "#81ecec" }
+  { name: "アップテンポ", cat: "cat-other" },
+  { name: "バラード", cat: "cat-other" },
+  { name: "一人だけ知らない曲", cat: "cat-other" },
+  { name: "2015–2017年リリース", cat: "cat-release" },
+  { name: "2018–2020年リリース", cat: "cat-release" },
+  { name: "2021–2023年リリース", cat: "cat-release" },
+  { name: "2024年以降のリリース", cat: "cat-release" },
+  { name: "曲名漢字のみ", cat: "cat-title" },
+  { name: "曲名英語のみ", cat: "cat-title" },
+  { name: "曲名カタカナのみ", cat: "cat-title" },
+  { name: "日本語で8文字以上の曲", cat: "cat-lang" },
+  { name: "日本語で2文字以下の曲", cat: "cat-lang" },
+  { name: "アーティスト名が〇行 or □段", cat: "cat-artist" },
+  { name: "曲名が〇行 or □段", cat: "cat-title" }
 ];
 
-const gyou = ["あ","か","さ","た","な","は","ま","や","ら","わ"];
-const dan = ["あ","い","う","え","お"];
-
-function randomScore() {
-    return Math.floor(Math.random() * 21) + 80; // 80〜100
+function renderConditionList() {
+  const ul = document.getElementById("conditionList");
+  ul.innerHTML = "";
+  baseConditions.forEach(c => {
+    const li = document.createElement("li");
+    li.textContent = c.name;
+    ul.appendChild(li);
+  });
 }
+renderConditionList();
 
-function scoreRange(score) {
-    return `${(score - 1).toFixed(2)} ～ ${(score + 0.99).toFixed(2)}`;
-}
-
-function randomGyouDanText() {
-    const useGyou = Math.random() < 0.5;
-    if (useGyou) {
-        return `${gyou[Math.floor(Math.random() * gyou.length)]}行`;
-    } else {
-        return `${dan[Math.floor(Math.random() * dan.length)]}段`;
-    }
+function rand(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function generateBingo() {
-    const players = Number(document.getElementById("players").value);
-    const bingo = document.getElementById("bingo");
-    const conditionList = document.getElementById("conditionList");
+  document.getElementById("preConditions").style.display = "none";
+  const table = document.getElementById("bingo");
+  table.innerHTML = "";
 
-    bingo.innerHTML = "";
-    conditionList.innerHTML = "";
+  const start = Number(startScore.value);
+  const playerCount = Number(playerCountInput = document.getElementById("playerCount").value);
 
-    // 人数制限
-    let conditions = baseConditions.filter(c =>
-        !c.minPlayers || players >= c.minPlayers
-    );
+  let conditions = [...baseConditions];
 
-    // 条件リスト表示（生成前）
-    conditionList.innerHTML = "<strong>使用条件：</strong><ul>" +
-        conditions.map(c => `<li>${c.text}</li>`).join("") +
-        "</ul>";
+  if (playerCount <= 2) {
+    conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
+  }
 
-    // 9マス分作成（必ず1回以上使う）
-    let selected = [];
-    while (selected.length < 9) {
-        selected.push(...conditions);
+  while (conditions.length < 9) {
+    conditions.push(rand(conditions));
+  }
+
+  conditions = conditions.sort(() => Math.random() - 0.5).slice(0,9);
+
+  let idx = 0;
+  for (let r = 0; r < 3; r++) {
+    const tr = table.insertRow();
+    for (let c = 0; c < 3; c++) {
+      const td = tr.insertCell();
+      const cond = conditions[idx++];
+
+      let name = cond.name;
+      if (name.includes("〇行")) {
+        name = name.replace("〇", rand(GYO)).replace("□", rand(DAN));
+      }
+
+      const score = start + Math.floor(Math.random() * 11);
+      td.className = cond.cat;
+      td.innerHTML = `
+        ${score}点
+        <span class="range">${(score-1).toFixed(2)}～${(score+0.99).toFixed(2)}</span>
+        <div style="font-size:14px">${name}</div>
+      `;
+
+      td.onclick = () => {
+        td.classList.toggle("marked");
+        checkBingo();
+      };
     }
-    selected = selected.slice(0, 9);
+  }
+}
 
-    // シャッフル
-    selected.sort(() => Math.random() - 0.5);
+function checkBingo() {
+  const t = document.getElementById("bingo");
+  const lines = [
+    [[0,0],[0,1],[0,2]],
+    [[1,0],[1,1],[1,2]],
+    [[2,0],[2,1],[2,2]],
+    [[0,0],[1,0],[2,0]],
+    [[0,1],[1,1],[2,1]],
+    [[0,2],[1,2],[2,2]],
+    [[0,0],[1,1],[2,2]],
+    [[0,2],[1,1],[2,0]],
+  ];
 
-    selected.forEach(cond => {
-        let text = cond.text;
-
-        if (text.includes("〇行 or □段")) {
-            const gd = randomGyouDanText();
-            text = text.replace("〇行 or □段", gd);
-        }
-
-        const score = randomScore();
-
-        const cell = document.createElement("div");
-        cell.className = "cell";
-        cell.style.background = cond.color;
-        cell.innerHTML = `
-            <div>${text}</div>
-            <div class="score">${score}点</div>
-            <div class="range">${scoreRange(score)}</div>
-        `;
-        bingo.appendChild(cell);
-    });
-
-    // 生成後は条件リスト非表示
-    conditionList.style.display = "none";
+  if (lines.some(line =>
+    line.every(([r,c]) => t.rows[r].cells[c].classList.contains("marked"))
+  )) {
+    document.getElementById("bingoModal").style.display = "flex";
+  }
 }
 </script>
-
 </body>
 </html>
