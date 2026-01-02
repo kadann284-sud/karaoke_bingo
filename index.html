@@ -236,7 +236,6 @@ function checkBingo() {
   if (lines.some(line =>
     line.every(([r,c]) => t.rows[r].cells[c].classList.contains("marked"))
   )) {
-    document.getElementById("bingoModal").style.display = "flex";
   }
 }
 </script>
