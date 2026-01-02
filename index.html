@@ -52,6 +52,7 @@ table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 12px;
+  position: relative;
 }
 
 td {
@@ -83,23 +84,15 @@ td.marked {
 .cat-artist  { background: #ffd180; }
 .cat-other   { background: #e1bee7; }
 
-/* モーダル */
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-content {
-  background: #fff;
-  color: #000;
-  padding: 24px 32px;
-  border-radius: 16px;
-  font-size: 32px;
-  font-weight: bold;
+/* ビンゴライン */
+.bingo-line {
+  position: absolute;
+  left: 5%;
+  width: 90%;
+  height: 6px;
+  background: #00e676;
+  border-radius: 4px;
+  pointer-events: none;
 }
 </style>
 </head>
@@ -120,7 +113,7 @@ td.marked {
     <input id="artist2" placeholder="アーティスト2">
     <input id="artist3" placeholder="アーティスト3">
     <input id="startScore" type="number" value="80">
-    <input id="playerCount" type="number" min="1" value="2" placeholder="遊ぶ人数">
+    <input id="playerCount" type="number" min="1" value="2">
     <button onclick="generateBingo()">ビンゴ生成</button>
   </div>
 
@@ -130,10 +123,6 @@ td.marked {
   </div>
 
   <table id="bingo"></table>
-</div>
-
-<div class="modal" id="bingoModal">
-  <div class="modal-content">ビンゴ！</div>
 </div>
 
 <script>
@@ -178,10 +167,9 @@ function generateBingo() {
   table.innerHTML = "";
 
   const start = Number(startScore.value);
-  const playerCount = Number(playerCountInput = document.getElementById("playerCount").value);
+  const playerCount = Number(document.getElementById("playerCount").value);
 
   let conditions = [...baseConditions];
-
   if (playerCount <= 2) {
     conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
   }
@@ -189,7 +177,6 @@ function generateBingo() {
   while (conditions.length < 9) {
     conditions.push(rand(conditions));
   }
-
   conditions = conditions.sort(() => Math.random() - 0.5).slice(0,9);
 
   let idx = 0;
@@ -221,7 +208,9 @@ function generateBingo() {
 }
 
 function checkBingo() {
+  document.querySelectorAll(".bingo-line").forEach(l => l.remove());
   const t = document.getElementById("bingo");
+
   const lines = [
     [[0,0],[0,1],[0,2]],
     [[1,0],[1,1],[1,2]],
@@ -230,21 +219,18 @@ function checkBingo() {
     [[0,1],[1,1],[2,1]],
     [[0,2],[1,2],[2,2]],
     [[0,0],[1,1],[2,2]],
-    [[0,2],[1,1],[2,0]],
+    [[0,2],[1,1],[2,0]]
   ];
 
-  if (lines.some(line =>
-    line.every(([r,c]) => t.rows[r].cells[c].classList.contains("marked"))
-  )) {
-    document.getElementById("bingoModal").style.display = "flex";
-  }
+  lines.forEach(line => {
+    if (line.every(([r,c]) => t.rows[r].cells[c].classList.contains("marked"))) {
+      const div = document.createElement("div");
+      div.className = "bingo-line";
+      div.style.top = `${line[0][0] * 33 + 16}%`;
+      t.appendChild(div);
+    }
+  });
 }
-
-// ビンゴ画面をタップしたら戻る
-document.getElementById("bingoModal").onclick = () => {
-  document.getElementById("bingoModal").style.display = "none";
-};
-
 </script>
 </body>
 </html>
