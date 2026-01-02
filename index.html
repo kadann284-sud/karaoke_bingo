@@ -205,8 +205,8 @@ renderConditionList();
 
 function generateBingo() {
   // 条件リストは生成後に非表示
-  const pre = document.getElementById("preConditions");
-  if (pre) pre.style.display = "none";
+  const preConditionsBox = document.getElementById("preConditions");
+  if (preConditionsBox) preConditionsBox.style.display = "none";
 
   const playerCount = Number(document.getElementById("playerCount").value) || 1;
   // 条件リストは生成後に非表示
@@ -227,7 +227,7 @@ function generateBingo() {
   // 2人以下なら「一人だけ知らない曲」を除外
   if (playerCount <= 2) {
     conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
-  }(a => ({ name: a, cat: "cat-artist" }))];
+  }(a => ({ name: a, cat: "cat-artist" }));
 
   // 条件を必ず1回以上使う
   let pool = [...conditions];
