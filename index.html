@@ -7,19 +7,14 @@
 
 <style>
 body {
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: system-ui, sans-serif;
   background: linear-gradient(135deg, #1e1e2f, #2b2b45);
   color: #fff;
   margin: 0;
   padding: 16px;
 }
 
-h1 { text-align: center; margin-bottom: 8px; }
-
-.container {
-  max-width: 900px;
-  margin: auto;
-}
+h1 { text-align: center; }
 
 .controls, .description, .conditions-box {
   background: rgba(255,255,255,0.08);
@@ -39,30 +34,23 @@ h1 { text-align: center; margin-bottom: 8px; }
 button {
   width: 100%;
   padding: 10px;
-  border: none;
   border-radius: 10px;
-  font-size: 16px;
   font-weight: bold;
-  background: linear-gradient(135deg, #ff7a18, #ffb347);
-  color: #000;
   cursor: pointer;
 }
 
 table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 12px;
-  position: relative;
+  border-spacing: 8px;
 }
 
 td {
-  height: 150px;
-  border-radius: 18px;
-  text-align: center;
+  height: 140px;
+  border-radius: 16px;
+  font-size: 22px;
   font-weight: bold;
-  font-size: 26px;
+  text-align: center;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
 }
 
 td.marked {
@@ -73,26 +61,30 @@ td.marked {
 .range {
   display: block;
   font-size: 12px;
-  font-weight: normal;
-  margin-top: 4px;
 }
 
-/* カテゴリ色 */
-.cat-release { background: #ff8a80; }
-.cat-title   { background: #82b1ff; }
-.cat-lang    { background: #b9f6ca; }
-.cat-artist  { background: #ffd180; }
-.cat-other   { background: #e1bee7; }
+.cat-release { background:#ff8a80; }
+.cat-title { background:#82b1ff; }
+.cat-lang { background:#b9f6ca; }
+.cat-artist { background:#ffd180; }
+.cat-other { background:#e1bee7; }
 
-/* ビンゴライン */
-.bingo-line {
-  position: absolute;
-  left: 5%;
-  width: 90%;
-  height: 6px;
-  background: #00e676;
-  border-radius: 4px;
-  pointer-events: none;
+/* モーダル */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: #fff;
+  color: #000;
+  padding: 24px;
+  border-radius: 16px;
+  text-align: center;
 }
 </style>
 </head>
@@ -101,28 +93,31 @@ td.marked {
 <h1>🎤 カラオケビンゴ</h1>
 
 <div class="description">
-<p>
-開始点数とアーティストを入力してビンゴ生成。<br>
-条件と点数が一致したらマスをタップしてください。
-</p>
+  点数と条件が一致したらマスをタップしてください。
 </div>
 
-<div class="container">
-  <div class="controls">
-    <input id="artist1" placeholder="アーティスト1">
-    <input id="artist2" placeholder="アーティスト2">
-    <input id="artist3" placeholder="アーティスト3">
-    <input id="startScore" type="number" value="80">
-    <input id="playerCount" type="number" min="1" value="2">
-    <button onclick="generateBingo()">ビンゴ生成</button>
-  </div>
+<div class="controls">
+  <input id="artist1" placeholder="アーティスト1">
+  <input id="artist2" placeholder="アーティスト2">
+  <input id="artist3" placeholder="アーティスト3">
+  <input id="startScore" type="number" value="80">
+  <input id="playerCount" type="number" value="2">
+  <button onclick="generateBingo()">ビンゴ生成</button>
+</div>
 
-  <div class="conditions-box" id="preConditions">
-    <strong>条件リスト（生成前）</strong>
-    <ul id="conditionList"></ul>
-  </div>
+<div class="conditions-box" id="preConditions">
+  <strong>条件リスト（生成前）</strong>
+  <ul id="conditionList"></ul>
+</div>
 
-  <table id="bingo"></table>
+<table id="bingo"></table>
+
+<!-- ビンゴモーダル -->
+<div class="modal" id="bingoModal">
+  <div class="modal-content">
+    🎉 BINGO!! 🎉<br><br>
+    <button onclick="closeBingo()">戻る</button>
+  </div>
 </div>
 
 <script>
@@ -130,76 +125,64 @@ const GYO = ["あ","か","さ","た","な","は","ま","や","ら","わ"];
 const DAN = ["あ","い","う","え","お"];
 
 const baseConditions = [
-  { name: "アップテンポ", cat: "cat-other" },
-  { name: "バラード", cat: "cat-other" },
-  { name: "一人だけ知らない曲", cat: "cat-other" },
-  { name: "2015–2017年リリース", cat: "cat-release" },
-  { name: "2018–2020年リリース", cat: "cat-release" },
-  { name: "2021–2023年リリース", cat: "cat-release" },
-  { name: "2024年以降のリリース", cat: "cat-release" },
-  { name: "曲名漢字のみ", cat: "cat-title" },
-  { name: "曲名英語のみ", cat: "cat-title" },
-  { name: "曲名カタカナのみ", cat: "cat-title" },
-  { name: "日本語で8文字以上の曲", cat: "cat-lang" },
-  { name: "日本語で2文字以下の曲", cat: "cat-lang" },
-  { name: "アーティスト名が〇行 or □段", cat: "cat-artist" },
-  { name: "曲名が〇行 or □段", cat: "cat-title" }
+  { name:"アップテンポ", cat:"cat-other" },
+  { name:"バラード", cat:"cat-other" },
+  { name:"一人だけ知らない曲", cat:"cat-other" },
+  { name:"曲名が〇行 or □段", cat:"cat-title" },
+  { name:"アーティスト名が〇行 or □段", cat:"cat-artist" }
 ];
 
-function renderConditionList() {
+function random(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function renderConditionList(){
   const ul = document.getElementById("conditionList");
   ul.innerHTML = "";
-  baseConditions.forEach(c => {
-    const li = document.createElement("li");
-    li.textContent = c.name;
+  baseConditions.forEach(c=>{
+    const li=document.createElement("li");
+    li.textContent=c.name;
     ul.appendChild(li);
   });
 }
 renderConditionList();
 
-function rand(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+function generateBingo(){
+  document.getElementById("preConditions").style.display="none";
 
-function generateBingo() {
-  document.getElementById("preConditions").style.display = "none";
-  const table = document.getElementById("bingo");
-  table.innerHTML = "";
+  const table=document.getElementById("bingo");
+  table.innerHTML="";
 
-  const start = Number(startScore.value);
-  const playerCount = Number(document.getElementById("playerCount").value);
+  const start=Number(startScore.value);
+  const artists=[artist1.value,artist2.value,artist3.value].filter(Boolean);
 
-  let conditions = [...baseConditions];
-  if (playerCount <= 2) {
-    conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
-  }
+  let conditions=[...baseConditions,
+    ...artists.map(a=>({name:a,cat:"cat-artist"}))
+  ];
 
-  while (conditions.length < 9) {
-    conditions.push(rand(conditions));
-  }
-  conditions = conditions.sort(() => Math.random() - 0.5).slice(0,9);
+  let pool=[...conditions];
+  while(pool.length<9) pool.push(random(conditions));
+  pool.sort(()=>Math.random()-0.5);
 
-  let idx = 0;
-  for (let r = 0; r < 3; r++) {
-    const tr = table.insertRow();
-    for (let c = 0; c < 3; c++) {
-      const td = tr.insertCell();
-      const cond = conditions[idx++];
+  let idx=0;
+  for(let r=0;r<3;r++){
+    const tr=table.insertRow();
+    for(let c=0;c<3;c++){
+      const td=tr.insertCell();
+      let cond=pool[idx++];
 
-      let name = cond.name;
-      if (name.includes("〇行")) {
-        name = name.replace("〇", rand(GYO)).replace("□", rand(DAN));
+      let name=cond.name;
+      if(name.includes("〇行")){
+        name=name.replace("〇",random(GYO)).replace("□",random(DAN));
       }
 
-      const score = start + Math.floor(Math.random() * 11);
-      td.className = cond.cat;
-      td.innerHTML = `
+      const score=start+Math.floor(Math.random()*11);
+      td.className=cond.cat;
+      td.innerHTML=`
         ${score}点
-        <span class="range">${(score-1).toFixed(2)}～${(score+0.99).toFixed(2)}</span>
+        <span class="range">${score-1}～${score+0.99}</span>
         <div style="font-size:14px">${name}</div>
       `;
 
-      td.onclick = () => {
+      td.onclick=()=>{
         td.classList.toggle("marked");
         checkBingo();
       };
@@ -207,11 +190,10 @@ function generateBingo() {
   }
 }
 
-function checkBingo() {
-  document.querySelectorAll(".bingo-line").forEach(l => l.remove());
-  const t = document.getElementById("bingo");
-
-  const lines = [
+function checkBingo(){
+  const t=bingo;
+  const get=(r,c)=>t.rows[r].cells[c];
+  const lines=[
     [[0,0],[0,1],[0,2]],
     [[1,0],[1,1],[1,2]],
     [[2,0],[2,1],[2,2]],
@@ -222,14 +204,13 @@ function checkBingo() {
     [[0,2],[1,1],[2,0]]
   ];
 
-  lines.forEach(line => {
-    if (line.every(([r,c]) => t.rows[r].cells[c].classList.contains("marked"))) {
-      const div = document.createElement("div");
-      div.className = "bingo-line";
-      div.style.top = `${line[0][0] * 33 + 16}%`;
-      t.appendChild(div);
-    }
-  });
+  if(lines.some(l=>l.every(([r,c])=>get(r,c).classList.contains("marked")))){
+    document.getElementById("bingoModal").style.display="flex";
+  }
+}
+
+function closeBingo(){
+  document.getElementById("bingoModal").style.display="none";
 }
 </script>
 </body>
