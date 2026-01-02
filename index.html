@@ -166,7 +166,7 @@
     </div>
 
     <div class="conditions-box" id="preConditions">
-      <strong>条件リスト（生成前）</strong>
+      <strong>条件リスト</strong>
       <ul id="conditionList"></ul>
     </div>
 
@@ -219,14 +219,51 @@
       table.innerHTML = "";
 
       const start = Number(startScore.value);
-      const playerCount = Number(playerCountInput = document.getElementById("playerCount").value);
+      const playerCount = Number(document.getElementById("playerCount").value);
 
       let conditions = [...baseConditions];
 
+      // 少人数時の条件削除
       if (playerCount <= 2) {
         conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
       }
 
+      /* ===============================
+         バラード / アップテンポ制御
+         =============================== */
+      const tempoConditions = conditions.filter(
+        c => c.name === "バラード" || c.name === "アップテンポ"
+      );
+
+      // どちらか一方を必ず選ぶ
+      const selectedTempo = rand(tempoConditions);
+
+      // 両方は入らないようにする
+      conditions = conditions.filter(
+        c => c.name !== "バラード" && c.name !== "アップテンポ"
+      );
+      conditions.push(selectedTempo);
+
+      /* ===============================
+         年リリース条件は最大2つまで
+         =============================== */
+      const releaseConditions = conditions.filter(c =>
+        c.name.includes("リリース")
+      );
+
+      const otherConditions = conditions.filter(
+        c => !c.name.includes("リリース")
+      );
+
+      const selectedReleases = releaseConditions
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 2);
+
+      conditions = [...otherConditions, ...selectedReleases];
+
+      /* ===============================
+         9マス分そろえる
+         =============================== */
       while (conditions.length < 9) {
         conditions.push(rand(conditions));
       }
@@ -260,6 +297,7 @@
         }
       }
     }
+
 
     function checkBingo() {
       const t = document.getElementById("bingo");
