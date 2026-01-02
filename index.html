@@ -239,6 +239,12 @@ function checkBingo() {
     document.getElementById("bingoModal").style.display = "flex";
   }
 }
+
+// ビンゴ画面をタップしたら戻る
+document.getElementById("bingoModal").onclick = () => {
+  document.getElementById("bingoModal").style.display = "none";
+};
+
 </script>
 </body>
 </html>
