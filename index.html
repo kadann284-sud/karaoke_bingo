@@ -138,7 +138,7 @@
 
 <div class="description">
   <p>
-    任意のアーティストを3つと開始点数を入力し、「ビンゴ生成A」を押してください。<br>
+    任意のアーティストを3つと開始点数を入力し、「ビンゴ生成」を押してください。<br>
     開始点数から＋10点までの範囲で、各マスの点数がランダムに生成されます。<br>
     自分が歌った曲・他の人が歌った曲どちらでも、条件と点数が一致していればマスをタップしてください。<br>
     他の人が歌った場合も、一度歌われた曲は再度使用できません。
@@ -204,9 +204,9 @@ renderConditionList();
 
 function generateBingo() {
   // 条件リストは生成後に非表示
-  document.getElementById("preConditions").style.display = "none";
-  // 条件リストは生成後に非表示
-  document.getElementById("preConditions").style.display = "none";
+  const pre = document.getElementById("preConditions");
+  if (pre) pre.style.display = "none";
+
   const table = document.getElementById("bingo");
   table.innerHTML = "";
   document.getElementById("bingoModal").style.display = "none";
@@ -218,18 +218,11 @@ function generateBingo() {
   const artists = [artist1.value, artist2.value, artist3.value].filter(a => a);
   let conditions = [...baseConditions, ...artists.map(a => ({ name: a, cat: "cat-artist" }))];
 
-  // 条件一覧表示
-  const ul = document.getElementById("conditionList");
-  ul.innerHTML = "";
-  conditions.forEach(c => {
-    const li = document.createElement("li");
-    li.textContent = c.name;
-    ul.appendChild(li);
-  });
-
-  // 必ず1回以上
+  // 条件を必ず1回以上使う
   let pool = [...conditions];
-  while (pool.length < 9) pool.push(conditions[Math.floor(Math.random()*conditions.length)]);
+  while (pool.length < 9) {
+    pool.push(conditions[Math.floor(Math.random() * conditions.length)]);
+  }
   pool.sort(() => Math.random() - 0.5);
 
   let idx = 0;
@@ -238,16 +231,13 @@ function generateBingo() {
     for (let c = 0; c < 3; c++) {
       const td = tr.insertCell();
 
-      
-      }
-
       const cond = pool[idx++];
       const score = Math.floor(Math.random() * (max - min + 1)) + min;
       const low = (score - 1).toFixed(2);
       const high = (score + 0.99).toFixed(2);
 
       td.className = cond.cat;
-      td.innerHTML = `${score}点<span class="range">${low}～${high}</span><div style="font-size:13px">${cond.name}</div>`;
+      td.innerHTML = `${score}点<span class=\"range\">${low}～${high}</span><div style=\"font-size:14px\">${cond.name}</div>`;
 
       td.onclick = () => {
         td.classList.toggle("marked");
