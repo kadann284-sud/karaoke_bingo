@@ -121,6 +121,36 @@
       font-size: 32px;
       font-weight: bold;
     }
+
+    /* 追加：条件チェックボックス用 */
+    .conditions-box ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+
+    .conditions-box li {
+      margin: 6px 0;
+      list-style: none;
+    }
+
+    .cond-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .cond-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #ffb347;
+      cursor: pointer;
+    }
+
+    .cond-note {
+      opacity: 0.85;
+      font-size: 12px;
+      margin-top: 8px;
+    }
   </style>
 </head>
 
@@ -168,6 +198,7 @@
     <div class="conditions-box" id="preConditions">
       <strong>条件リスト</strong>
       <ul id="conditionList"></ul>
+      <div class="cond-note">※「☑を外すと無し」にできるのは、今回追加した条件だけです。</div>
     </div>
 
     <table id="bingo"></table>
@@ -195,15 +226,45 @@
       { name: "日本語で8文字以上の曲", cat: "cat-lang" },
       { name: "日本語で2文字以下の曲", cat: "cat-lang" },
       { name: "アーティスト名が〇行 or □段", cat: "cat-artist" },
-      { name: "曲名が〇行 or □段", cat: "cat-title" }
+      { name: "曲名が〇行 or □段", cat: "cat-title" },
+
+      // ===== 追加条件（☑で無しにできる） =====
+      { name: "◯人バンド（〇は3～5）", cat: "cat-other", optional: true, optId: "opt_band" },
+      { name: "失恋ソング", cat: "cat-other", optional: true, optId: "opt_breakup" },
+      { name: "夏の歌(過半数が夏だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_summer" },
+      { name: "冬の歌(過半数が冬だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_winter" },
+      { name: "ディズニーの曲", cat: "cat-other", optional: true, optId: "opt_disney" },
+      { name: "主題歌", cat: "cat-other", optional: true, optId: "opt_theme" },
     ];
 
     function renderConditionList() {
       const ul = document.getElementById("conditionList");
       ul.innerHTML = "";
+
       baseConditions.forEach(c => {
         const li = document.createElement("li");
-        li.textContent = c.name;
+
+        // 追加分だけ「☑で無し」を付ける
+        if (c.optional) {
+          const row = document.createElement("div");
+          row.className = "cond-row";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.id = c.optId;
+          cb.checked = true;
+
+          const label = document.createElement("label");
+          label.htmlFor = c.optId;
+          label.textContent = c.name;
+
+          row.appendChild(cb);
+          row.appendChild(label);
+          li.appendChild(row);
+        } else {
+          li.textContent = c.name;
+        }
+
         ul.appendChild(li);
       });
     }
@@ -222,6 +283,13 @@
       const playerCount = Number(document.getElementById("playerCount").value);
 
       let conditions = [...baseConditions];
+
+      // 追加分：☑を外した条件は除外
+      conditions = conditions.filter(c => {
+        if (!c.optional) return true;
+        const cb = document.getElementById(c.optId);
+        return cb ? cb.checked : true;
+      });
 
       // 少人数時の条件削除
       if (playerCount <= 2) {
@@ -278,8 +346,16 @@
           const cond = conditions[idx++];
 
           let name = cond.name;
+
+          // 既存：行/段の埋め込み
           if (name.includes("〇行")) {
             name = name.replace("〇", rand(GYO)).replace("□", rand(DAN));
+          }
+
+          // 追加：◯人バンド（3～5）
+          if (name.includes("◯人バンド")) {
+            const n = 3 + Math.floor(Math.random() * 3); // 3,4,5
+            name = name.replace("◯", String(n));
           }
 
           const score = start + Math.floor(Math.random() * 11);
