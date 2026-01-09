@@ -56,7 +56,6 @@
       cursor: pointer;
     }
 
-    /* ======= 固定サイズの3×3グリッド ======= */
     table {
       width: 100%;
       table-layout: fixed;
@@ -79,7 +78,6 @@
       padding: 10px;
     }
 
-    /* 条件テキスト：2行で省略（サイズは固定） */
     .cond-text {
       font-size: 14px;
       line-height: 1.2;
@@ -91,7 +89,6 @@
       word-break: break-word;
     }
 
-    /* 省略時の対処：詳細ボタン（押したら全文モーダル表示） */
     .info-btn {
       position: absolute;
       left: 10px;
@@ -145,7 +142,6 @@
     .cat-artist { background: #ffd180; }
     .cat-other { background: #e1bee7; }
 
-    /* ======= モーダル（全文表示用） ======= */
     .modal {
       position: fixed;
       inset: 0;
@@ -324,8 +320,14 @@
   </div>
 
   <script>
-    const GYO = ["あ", "か", "さ", "た", "な", "は", "ま", "や", "ら", "わ"];
-    const DAN = ["あ", "い", "う", "え", "お"];
+    /* ===============================
+       変更点まとめ
+       1) 削除: 「アーティスト名が〇行 or □段」「曲名が〇行 or □段」
+       2) アルファ条件: ☑なし（固定で常に候補に入る）
+       3) 追加（☑なし）:
+          - アーティスト名がカタカナのみ
+          - アーティスト名が漢字のみ
+       =============================== */
 
     /* アルファ条件（B/S出やすく） */
     const ALPHABET_WEIGHTED = (() => {
@@ -371,34 +373,50 @@
       { name: "2024年以降のリリース", cat: "cat-release", group: "release" },
     ];
 
-    /* 基本条件 */
+    /* 基本条件
+       - 削除した2つは入れない
+       - 「アーティスト名がカタカナのみ」「アーティスト名が漢字のみ」を☑なしで追加（=ここに入れる）
+    */
     const baseConditions = [
       { name: "一人だけ知らない曲", cat: "cat-other" },
       ...releaseConditions,
+
       { name: "曲名漢字のみ", cat: "cat-title" },
       { name: "曲名英語のみ", cat: "cat-title" },
       { name: "曲名カタカナのみ", cat: "cat-title" },
+
+      { name: "アーティスト名がカタカナのみ", cat: "cat-artist" }, // ★追加（☑なし）
+      { name: "アーティスト名が漢字のみ", cat: "cat-artist" },     // ★追加（☑なし）
+
       { name: "日本語で8文字以上の曲", cat: "cat-lang" },
       { name: "日本語で2文字以下の曲", cat: "cat-lang" },
-      { name: "アーティスト名が〇行 or □段", cat: "cat-artist" },
-      { name: "曲名が〇行 or □段", cat: "cat-title" },
     ];
 
-    /* 追加条件（☑で無し） */
+    /* 追加条件（☑で無し）
+       - アルファ条件はここに入れない（☑なしにしたいので固定側へ）
+    */
     const extraConditions = [
       { name: "夏(冬)の歌(過半数が夏(冬)だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_season" },
       { name: "◯人バンド（〇は3～5）", cat: "cat-other", optional: true, optId: "opt_band" },
       { name: "失恋ソング", cat: "cat-other", optional: true, optId: "opt_breakup" },
       { name: "ディズニーの曲", cat: "cat-other", optional: true, optId: "opt_disney" },
       { name: "主題歌", cat: "cat-other", optional: true, optId: "opt_theme" },
-      { name: "〇、〇、〇、〇、〇で始まるアーティスト(〇はランダムアルファベット)", cat: "cat-artist", optional: true, optId: "opt_alpha" },
     ];
+
+    /* ★アルファ条件（☑なし固定） */
+    const fixedAlphaCondition = {
+      name: "〇、〇、〇、〇、〇で始まるアーティスト(〇はランダムアルファベット)",
+      cat: "cat-artist",
+      fixed: true,
+      optId: "opt_alpha_fixed"
+    };
 
     function renderConditionList() {
       const ul = document.getElementById("conditionList");
       ul.innerHTML = "";
 
       const hasRelease = baseConditions.some(c => c.group === "release");
+
       baseConditions.forEach(c => {
         if (c.group === "release") return;
         const li = document.createElement("li");
@@ -411,6 +429,13 @@
         li.textContent = "リリース年度";
         ul.appendChild(li);
       }
+
+      // ★アルファ条件：☑なしで表示
+      const liAlpha = document.createElement("li");
+      liAlpha.style.marginTop = "10px";
+      liAlpha.style.opacity = "0.95";
+      liAlpha.textContent = fixedAlphaCondition.name;
+      ul.appendChild(liAlpha);
 
       const liCombo = document.createElement("li");
       liCombo.style.marginTop = "10px";
@@ -436,7 +461,7 @@
 
         const label = document.createElement("label");
         label.htmlFor = c.optId;
-        label.textContent = c.name; // 一覧は〇のまま
+        label.textContent = c.name;
 
         row.appendChild(cb);
         row.appendChild(label);
@@ -472,7 +497,7 @@
       return `${low.toFixed(2)}～${high.toFixed(2)}`;
     }
 
-    /* ======= 省略対策：全文モーダル ======= */
+    /* ======= 全文表示モーダル ======= */
     const detailModal = document.getElementById("detailModal");
     const detailTitle = document.getElementById("detailTitle");
     const detailScoreLine = document.getElementById("detailScoreLine");
@@ -494,7 +519,6 @@
 
     detailClose.addEventListener("click", closeDetail);
     detailModal.addEventListener("click", (e) => {
-      // 背景クリックで閉じる（中身クリックは閉じない）
       if (e.target === detailModal) closeDetail();
     });
 
@@ -510,6 +534,7 @@
 
       let conditions = [...baseConditions];
 
+      // 追加条件：☑OFFは除外
       extraConditions.forEach(c => {
         const cb = document.getElementById(c.optId);
         if (cb && cb.checked) {
@@ -517,9 +542,13 @@
         }
       });
 
+      // ★アルファ条件（☑なし固定）を必ず候補に入れる
+      conditions.push({ ...fixedAlphaCondition });
+
       // 必ず入れる：アーティスト×{アップテンポ/バラード} ランダム1個
       conditions.push(pickArtistTypeComboCondition());
 
+      // 少人数時の条件削除
       if (playerCount <= 2) {
         conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
       }
@@ -530,6 +559,7 @@
       const selectedReleases = rels.sort(() => Math.random() - 0.5).slice(0, 2);
       conditions = [...others, ...selectedReleases];
 
+      // 9マスそろえる
       while (conditions.length < 9) conditions.push(rand(conditions));
       conditions = conditions.sort(() => Math.random() - 0.5).slice(0, 9);
 
@@ -542,17 +572,14 @@
 
           let name = cond.name;
 
-          if (name.includes("〇行")) {
-            name = name.replace("〇", rand(GYO)).replace("□", rand(DAN));
-          }
-
+          // ◯人バンド（3～5）
           if (name.includes("◯人バンド")) {
             const n = 3 + Math.floor(Math.random() * 3);
             name = name.replace("◯", String(n));
           }
 
-          // アルファ条件：マスではアルファに置換（一覧は〇のまま）
-          if (cond.optId === "opt_alpha") {
+          // ★アルファ条件：マスではアルファに置換（一覧は〇のまま）
+          if (cond.optId === "opt_alpha_fixed") {
             const letters = alphaLetters.join("、");
             name = name.replace(/〇、〇、〇、〇、〇/g, letters);
           }
@@ -562,11 +589,9 @@
 
           td.dataset.score = String(score);
           td.dataset.range = range;
-          td.dataset.cond = name; // ★全文保存
+          td.dataset.cond = name;
 
           td.className = cond.cat;
-
-          // ★省略対策：ℹ️ボタン追加（押すと全文モーダル）
           td.innerHTML = `
             <button class="info-btn" type="button">ℹ️ 詳細</button>
             ${score}点
@@ -574,13 +599,11 @@
             <div class="cond-text">${name}</div>
           `;
 
-          // マス本体：マーク切替
           td.onclick = () => {
             td.classList.toggle("marked");
             checkBingo();
           };
 
-          // 詳細ボタン：全文表示（マークは切り替えない）
           const infoBtn = td.querySelector(".info-btn");
           infoBtn.addEventListener("click", (e) => {
             e.stopPropagation();
