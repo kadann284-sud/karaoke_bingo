@@ -56,13 +56,16 @@
       cursor: pointer;
     }
 
+    /* ======= ここを変更：固定サイズの3×3グリッド ======= */
     table {
       width: 100%;
+      table-layout: fixed; /* 各列の幅を固定して揃える */
       border-collapse: separate;
       border-spacing: 12px;
     }
 
     td {
+      /* “内容の量”に左右されないように固定高さ */
       height: 150px;
       border-radius: 18px;
       text-align: center;
@@ -71,6 +74,22 @@
       cursor: pointer;
       box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
       position: relative;
+
+      /* 文字量が多くてもマスを押し出さない */
+      overflow: hidden;
+      vertical-align: middle;
+      padding: 10px;
+    }
+
+    /* 条件テキストが長いときは小さめ＋最大2行で省略 */
+    .cond-text {
+      font-size: 14px;
+      line-height: 1.2;
+      margin-top: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     td.marked {
@@ -248,9 +267,7 @@
     const GYO = ["あ", "か", "さ", "た", "な", "は", "ま", "や", "ら", "わ"];
     const DAN = ["あ", "い", "う", "え", "お"];
 
-    /* ===============================
-       アルファ条件（B/S出やすく）
-       =============================== */
+    /* アルファ条件（B/S出やすく） */
     const ALPHABET_WEIGHTED = (() => {
       const base = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
       return base.concat(["B", "B", "B", "B", "S", "S", "S", "S"]);
@@ -270,10 +287,8 @@
       return alphaLetters;
     }
 
-    /* ===============================
-       アーティスト×タイプ（ランダム1個）
-       =============================== */
-    const TYPE_POOL = ["アップテンポ", "バラード", "みんな知っている曲"];
+    /* アーティスト×タイプ（ランダム1個） */
+    const TYPE_POOL = ["アップテンポ", "バラード"]; // ←「みんな知っている曲」削除
 
     function getArtists3ForCombo() {
       const a1 = (document.getElementById("artist1").value || "").trim() || "アーティスト1(未入力)";
@@ -289,9 +304,7 @@
       return { name: `${artist} の ${type}`, cat: "cat-other", isCombo: true };
     }
 
-    /* ===============================
-       リリース条件（実際に出るのは今まで通り4種）
-       =============================== */
+    /* リリース条件（実際に出るのは今まで通り4種） */
     const releaseConditions = [
       { name: "2015–2017年リリース", cat: "cat-release", group: "release" },
       { name: "2018–2020年リリース", cat: "cat-release", group: "release" },
@@ -299,15 +312,10 @@
       { name: "2024年以降のリリース", cat: "cat-release", group: "release" },
     ];
 
-    /* ===============================
-       基本条件（アップテンポ/バラード単体なし）
-       =============================== */
+    /* 基本条件（「みんな知っている曲」削除済み） */
     const baseConditions = [
-      { name: "みんな知っている曲", cat: "cat-other" },
       { name: "一人だけ知らない曲", cat: "cat-other" },
-
       ...releaseConditions,
-
       { name: "曲名漢字のみ", cat: "cat-title" },
       { name: "曲名英語のみ", cat: "cat-title" },
       { name: "曲名カタカナのみ", cat: "cat-title" },
@@ -317,11 +325,9 @@
       { name: "曲名が〇行 or □段", cat: "cat-title" },
     ];
 
-    /* ===============================
-       追加条件（☑で無し）
-       - アルファ条件は「一覧では〇」
-       - マスでは「アルファ」にする（後で置換する）
-       =============================== */
+    /* 追加条件（☑で無し）
+       - アルファ条件は「一覧は〇」「マスはアルファに置換」
+    */
     const extraConditions = [
       { name: "夏(冬)の歌(過半数が夏(冬)だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_season" },
       { name: "◯人バンド（〇は3～5）", cat: "cat-other", optional: true, optId: "opt_band" },
@@ -331,23 +337,13 @@
       { name: "〇、〇、〇、〇、〇で始まるアーティスト(〇はランダムアルファベット)", cat: "cat-artist", optional: true, optId: "opt_alpha" },
     ];
 
-    function getArtistsRaw() {
-      const a1 = (document.getElementById("artist1").value || "").trim();
-      const a2 = (document.getElementById("artist2").value || "").trim();
-      const a3 = (document.getElementById("artist3").value || "").trim();
-      return [a1, a2, a3].filter(v => v.length > 0);
-    }
-
-    /* ===============================
-       事前の条件リスト表示
-       - リリースは「リリース年度」としてまとめて見せる
-       - artist1/2/3 単体条件は表示しない（削除）
-       =============================== */
+    /* 事前の条件リスト表示（artist1/2/3単体は出さない） */
     function renderConditionList() {
       const ul = document.getElementById("conditionList");
       ul.innerHTML = "";
 
       const hasRelease = baseConditions.some(c => c.group === "release");
+
       baseConditions.forEach(c => {
         if (c.group === "release") return;
         const li = document.createElement("li");
@@ -361,11 +357,10 @@
         ul.appendChild(li);
       }
 
-      // 新仕様の説明だけ表示
       const liCombo = document.createElement("li");
       liCombo.style.marginTop = "10px";
       liCombo.style.opacity = "0.9";
-      liCombo.textContent = "{アーティスト1,2,3}×{アップテンポ,バラード,みんな知っている曲} からランダム1個（例：アーティスト2のバラード）";
+      liCombo.textContent = "{アーティスト1,2,3}×{アップテンポ,バラード} からランダム1個（例：アーティスト2のバラード）";
       ul.appendChild(liCombo);
 
       const sep2 = document.createElement("li");
@@ -430,10 +425,8 @@
       const start = Number(startScore.value);
       const playerCount = Number(document.getElementById("playerCount").value);
 
-      // 生成ごとにアルファ更新
       pickAlpha5();
 
-      // 候補条件（基本＋チェックONの追加）
       let conditions = [...baseConditions];
 
       // 追加条件：☑OFFは除外
@@ -444,9 +437,7 @@
         }
       });
 
-      // ★artist1/2/3 単体条件は「追加しない」（削除済み）
-
-      // ★追加：アーティスト×タイプ から「ランダム1個」条件を必ず追加
+      // 必ず入れる：アーティスト×{アップテンポ/バラード} からランダム1個
       conditions.push(pickArtistTypeComboCondition());
 
       // 少人数時の条件削除
@@ -454,7 +445,7 @@
         conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
       }
 
-      /* 年リリース条件は最大2つまで（今まで通り） */
+      // リリース条件は最大2つまで
       const rels = conditions.filter(c => (c.group === "release") || (c.name.includes("リリース")));
       const others = conditions.filter(c => !(c.group === "release") && !c.name.includes("リリース"));
 
@@ -464,7 +455,7 @@
 
       conditions = [...others, ...selectedReleases];
 
-      /* 9マス分そろえる */
+      // 9マスそろえる
       while (conditions.length < 9) conditions.push(rand(conditions));
       conditions = conditions.sort(() => Math.random() - 0.5).slice(0, 9);
 
@@ -486,7 +477,7 @@
             name = name.replace("◯", String(n));
           }
 
-          // ★ここが要望：ビンゴのマスでは「〇→アルファ」にする
+          // アルファ条件：マスではアルファに置換
           if (cond.optId === "opt_alpha") {
             const letters = alphaLetters.join("、");
             name = name.replace(/〇、〇、〇、〇、〇/g, letters);
@@ -499,7 +490,7 @@
           td.innerHTML = `
             ${score}点
             <span class="range">${formatRange(score)}</span>
-            <div style="font-size:14px">${name}</div>
+            <div class="cond-text">${name}</div>
           `;
 
           td.onclick = () => {
