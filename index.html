@@ -86,7 +86,6 @@
       opacity: 0.95;
     }
 
-    /* 入力した点数がこのマスの範囲に入ったら強調 */
     td.in-range {
       outline: 5px solid #fff;
       transform: translateY(-2px);
@@ -106,28 +105,12 @@
       font-weight: 700;
     }
 
-    /* カテゴリ色 */
-    .cat-release {
-      background: #ff8a80;
-    }
+    .cat-release { background: #ff8a80; }
+    .cat-title { background: #82b1ff; }
+    .cat-lang { background: #b9f6ca; }
+    .cat-artist { background: #ffd180; }
+    .cat-other { background: #e1bee7; }
 
-    .cat-title {
-      background: #82b1ff;
-    }
-
-    .cat-lang {
-      background: #b9f6ca;
-    }
-
-    .cat-artist {
-      background: #ffd180;
-    }
-
-    .cat-other {
-      background: #e1bee7;
-    }
-
-    /* モーダル */
     .modal {
       position: fixed;
       inset: 0;
@@ -146,7 +129,6 @@
       font-weight: bold;
     }
 
-    /* 条件チェックボックス用 */
     .conditions-box ul {
       margin: 8px 0 0;
       padding-left: 18px;
@@ -174,13 +156,6 @@
       opacity: 0.85;
       font-size: 12px;
       margin-top: 8px;
-    }
-
-    /* 追加：点数入力の見た目 */
-    .range-controls .row {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
     }
 
     .badge {
@@ -225,7 +200,6 @@
     </p>
   </div>
 
-
   <div class="container">
     <div class="controls">
       <input id="artist1" placeholder="アーティスト1">
@@ -241,24 +215,19 @@
       <button onclick="generateBingo()">ビンゴ生成</button>
     </div>
 
-    <!-- ★追加：点数範囲を変えられる＆入力点数で該当マスを強調 -->
     <div class="range-controls">
       <strong>点数範囲・入力点数</strong>
-      <div class="row" style="margin-top:8px;">
-        <div>
-          <label>点数範囲（下に何点〜上に何点表示するか）</label>
-          <input id="rangeDown" type="number" step="0.01" value="1.00" min="0">
-          <input id="rangeUp" type="number" step="0.01" value="0.99" min="0">
-          <div class="hint">
-            例：<span class="badge">下 1.00 / 上 0.99</span> → 「85点」の下に「84.00〜85.99」表示
-          </div>
+      <div style="margin-top:8px;">
+        <label>点数範囲（下に何点〜上に何点表示するか）</label>
+        <input id="rangeDown" type="number" step="0.01" value="1.00" min="0">
+        <input id="rangeUp" type="number" step="0.01" value="0.99" min="0">
+        <div class="hint">
+          例：<span class="badge">下 1.00 / 上 0.99</span> → 「85点」の下に「84.00〜85.99」表示
         </div>
 
-        <div>
-          <label>今の点数（入力すると該当マスが光る）</label>
-          <input id="currentScore" type="number" step="0.01" placeholder="例：85.23">
-          <div class="hint">入力中も自動で反映します。範囲に入っているマスが「⬅これ！」になります。</div>
-        </div>
+        <label style="margin-top:8px; display:block;">今の点数（入力すると該当マスが光る）</label>
+        <input id="currentScore" type="number" step="0.01" placeholder="例：85.23">
+        <div class="hint">入力中も自動で反映します。範囲に入っているマスが「⬅これ！」になります。</div>
       </div>
     </div>
 
@@ -295,7 +264,6 @@
       { name: "アーティスト名が〇行 or □段", cat: "cat-artist" },
       { name: "曲名が〇行 or □段", cat: "cat-title" },
 
-      // 追加条件（☑で無しにできる）
       { name: "◯人バンド（〇は3～5）", cat: "cat-other", optional: true, optId: "opt_band" },
       { name: "失恋ソング", cat: "cat-other", optional: true, optId: "opt_breakup" },
       { name: "夏の歌(過半数が夏だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_summer" },
@@ -339,7 +307,6 @@
       return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    // ★範囲の表示を「入力で変えられる」ようにした関数
     function getRangeConfig() {
       const down = Number(document.getElementById("rangeDown").value);
       const up = Number(document.getElementById("rangeUp").value);
@@ -371,6 +338,18 @@
         if (!c.optional) return true;
         const cb = document.getElementById(c.optId);
         return cb ? cb.checked : true;
+      });
+
+      // ★追加：入力したアーティストを条件として追加（ここが今回の修正点）
+      const a1 = (document.getElementById("artist1").value || "").trim();
+      const a2 = (document.getElementById("artist2").value || "").trim();
+      const a3 = (document.getElementById("artist3").value || "").trim();
+      const artistInputs = [a1, a2, a3].filter(v => v.length > 0);
+
+      // 重複除去して条件に追加
+      const uniqArtists = [...new Set(artistInputs)];
+      uniqArtists.forEach(name => {
+        conditions.push({ name: `アーティスト：${name}`, cat: "cat-artist" });
       });
 
       // 少人数時の条件削除
@@ -407,20 +386,16 @@
 
           let name = cond.name;
 
-          // 既存：行/段の埋め込み
           if (name.includes("〇行")) {
             name = name.replace("〇", rand(GYO)).replace("□", rand(DAN));
           }
 
-          // 追加：◯人バンド（3～5）
           if (name.includes("◯人バンド")) {
-            const n = 3 + Math.floor(Math.random() * 3); // 3,4,5
+            const n = 3 + Math.floor(Math.random() * 3);
             name = name.replace("◯", String(n));
           }
 
           const score = start + Math.floor(Math.random() * 11);
-
-          // ★このマスの点数を保持（あとで「入力点数で強調」する）
           td.dataset.score = String(score);
 
           td.className = cond.cat;
@@ -437,11 +412,9 @@
         }
       }
 
-      // 生成後、入力点数があれば即強調
       highlightByCurrentScore();
     }
 
-    // ★入力した点数がどの範囲に入るか、マスを強調表示
     function highlightByCurrentScore() {
       const table = document.getElementById("bingo");
       if (!table || table.rows.length === 0) return;
@@ -449,33 +422,24 @@
       const val = Number(document.getElementById("currentScore").value);
       const hasVal = isFinite(val);
 
-      // いったん全部外す
       for (const tr of table.rows) {
-        for (const td of tr.cells) {
-          td.classList.remove("in-range");
-        }
+        for (const td of tr.cells) td.classList.remove("in-range");
       }
       if (!hasVal) return;
 
       const { down, up } = getRangeConfig();
 
-      // 範囲に入ってるマスを付ける
       for (const tr of table.rows) {
         for (const td of tr.cells) {
           const s = Number(td.dataset.score);
           if (!isFinite(s)) continue;
           const low = s - down;
           const high = s + up;
-
-          // 例：84.00～85.99 なら low<=val<=high
-          if (val >= low && val <= high) {
-            td.classList.add("in-range");
-          }
+          if (val >= low && val <= high) td.classList.add("in-range");
         }
       }
     }
 
-    // ★範囲入力を変えたら、表示も強調も更新
     function refreshRangesAndHighlight() {
       const table = document.getElementById("bingo");
       if (!table || table.rows.length === 0) return;
@@ -491,7 +455,6 @@
       highlightByCurrentScore();
     }
 
-    // 入力イベントで即反映
     document.getElementById("currentScore").addEventListener("input", highlightByCurrentScore);
     document.getElementById("rangeDown").addEventListener("input", refreshRangesAndHighlight);
     document.getElementById("rangeUp").addEventListener("input", refreshRangesAndHighlight);
@@ -512,7 +475,7 @@
       if (lines.some(line =>
         line.every(([r, c]) => t.rows[r].cells[c].classList.contains("marked"))
       )) {
-        // 元の「何もしない」挙動は維持（内容を変えない）
+        // 元の挙動維持
       }
     }
   </script>
