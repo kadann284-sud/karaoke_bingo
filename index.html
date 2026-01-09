@@ -321,12 +321,9 @@
 
   <script>
     /* ===============================
-       変更点まとめ
-       1) 削除: 「アーティスト名が〇行 or □段」「曲名が〇行 or □段」
-       2) アルファ条件: ☑なし（固定で常に候補に入る）
-       3) 追加（☑なし）:
-          - アーティスト名がカタカナのみ
-          - アーティスト名が漢字のみ
+       今回の変更
+       - 削除: 「日本語で2文字以下の曲」
+       - 追加（☑なし固定）: 「〇文字の曲(英語も可)」(〇=2〜7)
        =============================== */
 
     /* アルファ条件（B/S出やすく） */
@@ -373,9 +370,8 @@
       { name: "2024年以降のリリース", cat: "cat-release", group: "release" },
     ];
 
-    /* 基本条件
-       - 削除した2つは入れない
-       - 「アーティスト名がカタカナのみ」「アーティスト名が漢字のみ」を☑なしで追加（=ここに入れる）
+    /* 基本条件（日本語2文字以下は削除済み）
+       ★追加（固定）: 〇文字の曲(英語も可)
     */
     const baseConditions = [
       { name: "一人だけ知らない曲", cat: "cat-other" },
@@ -385,16 +381,16 @@
       { name: "曲名英語のみ", cat: "cat-title" },
       { name: "曲名カタカナのみ", cat: "cat-title" },
 
-      { name: "アーティスト名がカタカナのみ", cat: "cat-artist" }, // ★追加（☑なし）
-      { name: "アーティスト名が漢字のみ", cat: "cat-artist" },     // ★追加（☑なし）
+      { name: "アーティスト名がカタカナのみ", cat: "cat-artist" },
+      { name: "アーティスト名が漢字のみ", cat: "cat-artist" },
 
       { name: "日本語で8文字以上の曲", cat: "cat-lang" },
-      { name: "日本語で2文字以下の曲", cat: "cat-lang" },
+
+      // ★追加（☑なし固定）: 数字は2～7でランダム
+      { name: "〇文字の曲(英語も可)", cat: "cat-title", fixedLen: true },
     ];
 
-    /* 追加条件（☑で無し）
-       - アルファ条件はここに入れない（☑なしにしたいので固定側へ）
-    */
+    /* 追加条件（☑で無し） */
     const extraConditions = [
       { name: "夏(冬)の歌(過半数が夏(冬)だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_season" },
       { name: "◯人バンド（〇は3～5）", cat: "cat-other", optional: true, optId: "opt_band" },
@@ -403,7 +399,7 @@
       { name: "主題歌", cat: "cat-other", optional: true, optId: "opt_theme" },
     ];
 
-    /* ★アルファ条件（☑なし固定） */
+    /* アルファ条件（☑なし固定） */
     const fixedAlphaCondition = {
       name: "〇、〇、〇、〇、〇で始まるアーティスト(〇はランダムアルファベット)",
       cat: "cat-artist",
@@ -416,7 +412,6 @@
       ul.innerHTML = "";
 
       const hasRelease = baseConditions.some(c => c.group === "release");
-
       baseConditions.forEach(c => {
         if (c.group === "release") return;
         const li = document.createElement("li");
@@ -430,7 +425,7 @@
         ul.appendChild(li);
       }
 
-      // ★アルファ条件：☑なしで表示
+      // アルファ条件：☑なしで表示
       const liAlpha = document.createElement("li");
       liAlpha.style.marginTop = "10px";
       liAlpha.style.opacity = "0.95";
@@ -473,12 +468,12 @@
     pickAlpha5();
     renderConditionList();
 
-    ["artist1", "artist2", "artist3"].forEach(id => {
-      document.getElementById(id).addEventListener("input", renderConditionList);
-    });
-
     function rand(arr) {
       return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function randInt(min, max) { // inclusive
+      return min + Math.floor(Math.random() * (max - min + 1));
     }
 
     function getRangeConfig() {
@@ -497,7 +492,7 @@
       return `${low.toFixed(2)}～${high.toFixed(2)}`;
     }
 
-    /* ======= 全文表示モーダル ======= */
+    /* 全文表示モーダル */
     const detailModal = document.getElementById("detailModal");
     const detailTitle = document.getElementById("detailTitle");
     const detailScoreLine = document.getElementById("detailScoreLine");
@@ -542,10 +537,10 @@
         }
       });
 
-      // ★アルファ条件（☑なし固定）を必ず候補に入れる
+      // アルファ条件（固定）
       conditions.push({ ...fixedAlphaCondition });
 
-      // 必ず入れる：アーティスト×{アップテンポ/バラード} ランダム1個
+      // アーティスト×{アップテンポ/バラード} ランダム1個
       conditions.push(pickArtistTypeComboCondition());
 
       // 少人数時の条件削除
@@ -578,7 +573,13 @@
             name = name.replace("◯", String(n));
           }
 
-          // ★アルファ条件：マスではアルファに置換（一覧は〇のまま）
+          // 〇文字の曲（2～7）
+          if (cond.fixedLen) {
+            const n = randInt(2, 7);
+            name = name.replace("〇", String(n));
+          }
+
+          // アルファ条件：マスではアルファに置換
           if (cond.optId === "opt_alpha_fixed") {
             const letters = alphaLetters.join("、");
             name = name.replace(/〇、〇、〇、〇、〇/g, letters);
