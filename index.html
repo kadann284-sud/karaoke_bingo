@@ -86,6 +86,7 @@
       opacity: 0.95;
     }
 
+    /* 入力した点数がこのマスの範囲に入ったら強調 */
     td.in-range {
       outline: 5px solid #fff;
       transform: translateY(-2px);
@@ -105,12 +106,28 @@
       font-weight: 700;
     }
 
-    .cat-release { background: #ff8a80; }
-    .cat-title { background: #82b1ff; }
-    .cat-lang { background: #b9f6ca; }
-    .cat-artist { background: #ffd180; }
-    .cat-other { background: #e1bee7; }
+    /* カテゴリ色 */
+    .cat-release {
+      background: #ff8a80;
+    }
 
+    .cat-title {
+      background: #82b1ff;
+    }
+
+    .cat-lang {
+      background: #b9f6ca;
+    }
+
+    .cat-artist {
+      background: #ffd180;
+    }
+
+    .cat-other {
+      background: #e1bee7;
+    }
+
+    /* モーダル */
     .modal {
       position: fixed;
       inset: 0;
@@ -129,9 +146,10 @@
       font-weight: bold;
     }
 
+    /* 条件チェックボックス用 */
     .conditions-box ul {
       margin: 8px 0 0;
-      padding-left: 18px;
+      padding-left: 0;
     }
 
     .conditions-box li {
@@ -173,6 +191,18 @@
       margin-top: 4px;
       line-height: 1.4;
     }
+
+    .sec-title {
+      margin-top: 10px;
+      font-weight: 800;
+      opacity: 0.95;
+    }
+
+    .small {
+      font-size: 12px;
+      opacity: 0.85;
+      margin-top: 4px;
+    }
   </style>
 </head>
 
@@ -199,6 +229,7 @@
       5. 条件リストは右側でビンゴ生成前に確認できます。
     </p>
   </div>
+
 
   <div class="container">
     <div class="controls">
@@ -233,8 +264,15 @@
 
     <div class="conditions-box" id="preConditions">
       <strong>条件リスト</strong>
+      <div class="small">※ビンゴは「アーティスト(1〜3) × {アップテンポ/バラード/みんな知っている曲}」の3×3で固定です。</div>
+
+      <div class="sec-title">このビンゴで使う条件（3×3）</div>
+      <ul id="comboList"></ul>
+
+      <div class="sec-title">追加の条件（☑を外すと「無し」）</div>
       <ul id="conditionList"></ul>
-      <div class="cond-note">※「☑を外すと無し」にできるのは、今回追加した条件だけです。</div>
+
+      <div class="cond-note">※「リリース年度」は一覧として残しています（ビンゴ3×3には直接は入りません）。</div>
     </div>
 
     <table id="bingo"></table>
@@ -245,66 +283,54 @@
   </div>
 
   <script>
-    const GYO = ["あ", "か", "さ", "た", "な", "は", "ま", "や", "ら", "わ"];
-    const DAN = ["あ", "い", "う", "え", "お"];
+    /* ===============================
+       追加：アルファベット5個ランダム
+       =============================== */
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    let alphaLetters = [];
 
-    const baseConditions = [
-      { name: "アップテンポ", cat: "cat-other" },
-      { name: "バラード", cat: "cat-other" },
-      { name: "一人だけ知らない曲", cat: "cat-other" },
-      { name: "2015–2017年リリース", cat: "cat-release" },
-      { name: "2018–2020年リリース", cat: "cat-release" },
-      { name: "2021–2023年リリース", cat: "cat-release" },
-      { name: "2024年以降のリリース", cat: "cat-release" },
-      { name: "曲名漢字のみ", cat: "cat-title" },
-      { name: "曲名英語のみ", cat: "cat-title" },
-      { name: "曲名カタカナのみ", cat: "cat-title" },
-      { name: "日本語で8文字以上の曲", cat: "cat-lang" },
-      { name: "日本語で2文字以下の曲", cat: "cat-lang" },
-      { name: "アーティスト名が〇行 or □段", cat: "cat-artist" },
-      { name: "曲名が〇行 or □段", cat: "cat-title" },
+    function pickAlpha5() {
+      const pool = [...ALPHABET].sort(() => Math.random() - 0.5);
+      alphaLetters = pool.slice(0, 5).sort(); // 見やすいように並べ替え
+      return alphaLetters;
+    }
 
+    /* ===============================
+       追加条件（チェックで無し）
+       =============================== */
+    const extraConditions = [
+      // リリース年の条件は「ひとまとめ」に変更
+      { name: "リリース年度", cat: "cat-release" },
+
+      // まとめ：夏/冬を1つに
+      { name: "夏(冬)の歌(過半数が夏(冬)だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_season" },
+
+      // 既存追加条件
       { name: "◯人バンド（〇は3～5）", cat: "cat-other", optional: true, optId: "opt_band" },
       { name: "失恋ソング", cat: "cat-other", optional: true, optId: "opt_breakup" },
-      { name: "夏の歌(過半数が夏だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_summer" },
-      { name: "冬の歌(過半数が冬だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_winter" },
       { name: "ディズニーの曲", cat: "cat-other", optional: true, optId: "opt_disney" },
       { name: "主題歌", cat: "cat-other", optional: true, optId: "opt_theme" },
+
+      // 新条件：アルファベット5個で始まるアーティスト（チェックで無し）
+      { name: "〇、〇、〇、〇、〇で始まるアーティスト", cat: "cat-artist", optional: true, optId: "opt_alpha" },
     ];
 
-    function renderConditionList() {
-      const ul = document.getElementById("conditionList");
-      ul.innerHTML = "";
+    /* ===============================
+       3×3固定：列条件
+       =============================== */
+    const FIXED_TYPES = ["アップテンポ", "バラード", "みんな知っている曲"];
 
-      baseConditions.forEach(c => {
-        const li = document.createElement("li");
+    function getArtists() {
+      const a1 = (document.getElementById("artist1").value || "").trim();
+      const a2 = (document.getElementById("artist2").value || "").trim();
+      const a3 = (document.getElementById("artist3").value || "").trim();
 
-        if (c.optional) {
-          const row = document.createElement("div");
-          row.className = "cond-row";
-
-          const cb = document.createElement("input");
-          cb.type = "checkbox";
-          cb.id = c.optId;
-          cb.checked = true;
-
-          const label = document.createElement("label");
-          label.htmlFor = c.optId;
-          label.textContent = c.name;
-
-          row.appendChild(cb);
-          row.appendChild(label);
-          li.appendChild(row);
-        } else {
-          li.textContent = c.name;
-        }
-        ul.appendChild(li);
-      });
-    }
-    renderConditionList();
-
-    function rand(arr) {
-      return arr[Math.floor(Math.random() * arr.length)];
+      // 未入力でも 3×3を崩さないためのフォールバック
+      return [
+        a1 || "アーティスト1(未入力)",
+        a2 || "アーティスト2(未入力)",
+        a3 || "アーティスト3(未入力)"
+      ];
     }
 
     function getRangeConfig() {
@@ -323,86 +349,104 @@
       return `${low.toFixed(2)}～${high.toFixed(2)}`;
     }
 
+    function renderConditionList() {
+      // 3×3 combo 表示
+      const comboUl = document.getElementById("comboList");
+      comboUl.innerHTML = "";
+      const artists = getArtists();
+      artists.forEach(a => {
+        FIXED_TYPES.forEach(t => {
+          const li = document.createElement("li");
+          li.textContent = `アーティスト：${a} × ${t}`;
+          comboUl.appendChild(li);
+        });
+      });
+
+      // 追加条件（チェック付き）
+      const ul = document.getElementById("conditionList");
+      ul.innerHTML = "";
+
+      extraConditions.forEach(c => {
+        const li = document.createElement("li");
+
+        if (c.optional) {
+          const row = document.createElement("div");
+          row.className = "cond-row";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.id = c.optId;
+          cb.checked = true;
+
+          const label = document.createElement("label");
+          label.htmlFor = c.optId;
+
+          // アルファ条件は現在のアルファを埋めて見せる
+          if (c.optId === "opt_alpha") {
+            const letters = (alphaLetters.length ? alphaLetters : pickAlpha5()).join("、");
+            label.textContent = c.name.replace("〇、〇、〇、〇、〇", letters);
+          } else {
+            label.textContent = c.name;
+          }
+
+          row.appendChild(cb);
+          row.appendChild(label);
+          li.appendChild(row);
+        } else {
+          li.textContent = c.name;
+        }
+
+        ul.appendChild(li);
+      });
+    }
+
+    /* 初期表示 */
+    pickAlpha5();
+    renderConditionList();
+
+    // アーティスト入力が変わったら、条件リストの 3×3 表示も更新
+    ["artist1", "artist2", "artist3"].forEach(id => {
+      document.getElementById(id).addEventListener("input", renderConditionList);
+    });
+
+    function rand(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
     function generateBingo() {
       document.getElementById("preConditions").style.display = "none";
       const table = document.getElementById("bingo");
       table.innerHTML = "";
 
       const start = Number(startScore.value);
-      const playerCount = Number(document.getElementById("playerCount").value);
 
-      let conditions = [...baseConditions];
+      // ビンゴ生成のたびに、アルファ条件の5文字を「ランダムに更新」
+      pickAlpha5();
 
-      // 追加分：☑を外した条件は除外
-      conditions = conditions.filter(c => {
-        if (!c.optional) return true;
-        const cb = document.getElementById(c.optId);
-        return cb ? cb.checked : true;
-      });
+      // 3×3 固定生成（行：artist1..3 / 列：アップテンポ・バラード・みんな知っている曲）
+      const artists = getArtists();
 
-      // ★追加：入力したアーティストを条件として追加（ここが今回の修正点）
-      const a1 = (document.getElementById("artist1").value || "").trim();
-      const a2 = (document.getElementById("artist2").value || "").trim();
-      const a3 = (document.getElementById("artist3").value || "").trim();
-      const artistInputs = [a1, a2, a3].filter(v => v.length > 0);
-
-      // 重複除去して条件に追加
-      const uniqArtists = [...new Set(artistInputs)];
-      uniqArtists.forEach(name => {
-        conditions.push({ name: `アーティスト：${name}`, cat: "cat-artist" });
-      });
-
-      // 少人数時の条件削除
-      if (playerCount <= 2) {
-        conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
-      }
-
-      /* バラード / アップテンポ制御 */
-      const tempoConditions = conditions.filter(
-        c => c.name === "バラード" || c.name === "アップテンポ"
-      );
-      const selectedTempo = rand(tempoConditions);
-      conditions = conditions.filter(
-        c => c.name !== "バラード" && c.name !== "アップテンポ"
-      );
-      conditions.push(selectedTempo);
-
-      /* 年リリース条件は最大2つまで */
-      const releaseConditions = conditions.filter(c => c.name.includes("リリース"));
-      const otherConditions = conditions.filter(c => !c.name.includes("リリース"));
-      const selectedReleases = releaseConditions.sort(() => Math.random() - 0.5).slice(0, 2);
-      conditions = [...otherConditions, ...selectedReleases];
-
-      /* 9マス分そろえる */
-      while (conditions.length < 9) conditions.push(rand(conditions));
-      conditions = conditions.sort(() => Math.random() - 0.5).slice(0, 9);
-
-      let idx = 0;
       for (let r = 0; r < 3; r++) {
         const tr = table.insertRow();
         for (let c = 0; c < 3; c++) {
           const td = tr.insertCell();
-          const cond = conditions[idx++];
 
-          let name = cond.name;
-
-          if (name.includes("〇行")) {
-            name = name.replace("〇", rand(GYO)).replace("□", rand(DAN));
-          }
-
-          if (name.includes("◯人バンド")) {
-            const n = 3 + Math.floor(Math.random() * 3);
-            name = name.replace("◯", String(n));
-          }
+          const artistName = artists[r];
+          const typeName = FIXED_TYPES[c];
 
           const score = start + Math.floor(Math.random() * 11);
           td.dataset.score = String(score);
 
-          td.className = cond.cat;
+          // 見た目カテゴリ：タイプによって色を少し分ける（大枠は維持）
+          td.className = (typeName === "アップテンポ" || typeName === "バラード") ? "cat-other" : "cat-title";
+
           td.innerHTML = `
             ${score}点
             <span class="range">${formatRange(score)}</span>
-            <div style="font-size:14px">${name}</div>
+            <div style="font-size:14px; margin-top:6px;">
+              <div>🎤 ${artistName}</div>
+              <div>✅ ${typeName}</div>
+            </div>
           `;
 
           td.onclick = () => {
@@ -415,6 +459,7 @@
       highlightByCurrentScore();
     }
 
+    /* 入力した点数がどの範囲に入るか、マスを強調表示 */
     function highlightByCurrentScore() {
       const table = document.getElementById("bingo");
       if (!table || table.rows.length === 0) return;
@@ -440,6 +485,7 @@
       }
     }
 
+    /* 範囲入力を変えたら、表示も強調も更新 */
     function refreshRangesAndHighlight() {
       const table = document.getElementById("bingo");
       if (!table || table.rows.length === 0) return;
@@ -475,7 +521,7 @@
       if (lines.some(line =>
         line.every(([r, c]) => t.rows[r].cells[c].classList.contains("marked"))
       )) {
-        // 元の挙動維持
+        // 元の挙動維持（何もしない）
       }
     }
   </script>
