@@ -271,9 +271,7 @@
     }
 
     /* ===============================
-       追加：アーティスト×タイプ（ランダム1個）
-       - baseConditions から「アップテンポ/バラード」を消す
-       - 代わりに「アーティストiのバラード」などの複合条件を入れる
+       アーティスト×タイプ（ランダム1個）
        =============================== */
     const TYPE_POOL = ["アップテンポ", "バラード", "みんな知っている曲"];
 
@@ -302,7 +300,7 @@
     ];
 
     /* ===============================
-       基本条件（アップテンポ/バラード単体は削除済み）
+       基本条件（アップテンポ/バラード単体なし）
        =============================== */
     const baseConditions = [
       { name: "みんな知っている曲", cat: "cat-other" },
@@ -321,7 +319,8 @@
 
     /* ===============================
        追加条件（☑で無し）
-       - アルファ条件は〇表示のまま
+       - アルファ条件は「一覧では〇」
+       - マスでは「アルファ」にする（後で置換する）
        =============================== */
     const extraConditions = [
       { name: "夏(冬)の歌(過半数が夏(冬)だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_season" },
@@ -342,14 +341,13 @@
     /* ===============================
        事前の条件リスト表示
        - リリースは「リリース年度」としてまとめて見せる
-       - さらに「アーティスト×タイプ」は説明として出す（実際は生成時にランダム1個追加）
+       - artist1/2/3 単体条件は表示しない（削除）
        =============================== */
     function renderConditionList() {
       const ul = document.getElementById("conditionList");
       ul.innerHTML = "";
 
       const hasRelease = baseConditions.some(c => c.group === "release");
-
       baseConditions.forEach(c => {
         if (c.group === "release") return;
         const li = document.createElement("li");
@@ -363,27 +361,12 @@
         ul.appendChild(li);
       }
 
-      // 新仕様の説明（固定リストとして表示）
+      // 新仕様の説明だけ表示
       const liCombo = document.createElement("li");
       liCombo.style.marginTop = "10px";
       liCombo.style.opacity = "0.9";
-      liCombo.textContent = "{アーティスト1,2,3}×{アップテンポ,バラード,みんな知っている曲} からランダム1個";
+      liCombo.textContent = "{アーティスト1,2,3}×{アップテンポ,バラード,みんな知っている曲} からランダム1個（例：アーティスト2のバラード）";
       ul.appendChild(liCombo);
-
-      const artists = [...new Set(getArtistsRaw())];
-      if (artists.length > 0) {
-        const sep = document.createElement("li");
-        sep.style.opacity = "0.8";
-        sep.style.marginTop = "10px";
-        sep.textContent = "— 入力アーティスト（条件として追加）—";
-        ul.appendChild(sep);
-
-        artists.forEach(name => {
-          const li = document.createElement("li");
-          li.textContent = `アーティスト：${name}`;
-          ul.appendChild(li);
-        });
-      }
 
       const sep2 = document.createElement("li");
       sep2.style.opacity = "0.8";
@@ -403,7 +386,7 @@
 
         const label = document.createElement("label");
         label.htmlFor = c.optId;
-        label.textContent = c.name;
+        label.textContent = c.name; // 一覧は〇のまま
 
         row.appendChild(cb);
         row.appendChild(label);
@@ -450,7 +433,7 @@
       // 生成ごとにアルファ更新
       pickAlpha5();
 
-      // 候補条件（基本＋チェックONの追加＋入力アーティスト）
+      // 候補条件（基本＋チェックONの追加）
       let conditions = [...baseConditions];
 
       // 追加条件：☑OFFは除外
@@ -461,14 +444,9 @@
         }
       });
 
-      // 入力アーティスト追加（重複除去）
-      const artists = [...new Set(getArtistsRaw())];
-      artists.forEach(name => {
-        conditions.push({ name: `アーティスト：${name}`, cat: "cat-artist" });
-      });
+      // ★artist1/2/3 単体条件は「追加しない」（削除済み）
 
-      // ★追加：アーティスト×タイプ から「ランダム1個」条件を追加
-      // 例：アーティスト2 の バラード
+      // ★追加：アーティスト×タイプ から「ランダム1個」条件を必ず追加
       conditions.push(pickArtistTypeComboCondition());
 
       // 少人数時の条件削除
@@ -508,9 +486,10 @@
             name = name.replace("◯", String(n));
           }
 
-          // アルファ条件は「〇のまま表示」なので置換しない（内部保持だけ）
+          // ★ここが要望：ビンゴのマスでは「〇→アルファ」にする
           if (cond.optId === "opt_alpha") {
-            td.dataset.alpha = alphaLetters.join(",");
+            const letters = alphaLetters.join("、");
+            name = name.replace(/〇、〇、〇、〇、〇/g, letters);
           }
 
           const score = start + Math.floor(Math.random() * 11);
