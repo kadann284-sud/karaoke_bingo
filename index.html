@@ -86,7 +86,6 @@
       opacity: 0.95;
     }
 
-    /* 入力した点数がこのマスの範囲に入ったら強調 */
     td.in-range {
       outline: 5px solid #fff;
       transform: translateY(-2px);
@@ -106,14 +105,12 @@
       font-weight: 700;
     }
 
-    /* カテゴリ色 */
     .cat-release { background: #ff8a80; }
     .cat-title { background: #82b1ff; }
     .cat-lang { background: #b9f6ca; }
     .cat-artist { background: #ffd180; }
     .cat-other { background: #e1bee7; }
 
-    /* モーダル */
     .modal {
       position: fixed;
       inset: 0;
@@ -132,7 +129,6 @@
       font-weight: bold;
     }
 
-    /* 条件チェックボックス用 */
     .conditions-box ul {
       margin: 8px 0 0;
       padding-left: 0;
@@ -253,23 +249,17 @@
     const DAN = ["あ", "い", "う", "え", "お"];
 
     /* ===============================
-       アルファベット（B,Sの確率を上げる）
-       - B と S をプールに多めに入れて重み付け
+       アルファ条件（B/S出やすく）
        =============================== */
     const ALPHABET_WEIGHTED = (() => {
       const base = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-      // B と S を追加で増やす（確率UP）
-      // 合計: 26 + 4 + 4 = 34（BとSは通常の約(5/1)倍くらい）
       return base.concat(["B", "B", "B", "B", "S", "S", "S", "S"]);
     })();
 
-    // 生成のたびに更新される「実際の文字」
     let alphaLetters = [];
 
-    // 重み付きのランダム抽選で 5文字（重複なし）
     function pickAlpha5() {
       const chosen = new Set();
-      // 無限ループ回避のため上限
       let guard = 0;
       while (chosen.size < 5 && guard < 2000) {
         const ch = ALPHABET_WEIGHTED[Math.floor(Math.random() * ALPHABET_WEIGHTED.length)];
@@ -281,9 +271,28 @@
     }
 
     /* ===============================
-       基本条件（候補に入る）
-       - リリースは「実際に出るものは今まで通り」4種
-       - 一覧表示では「リリース年度」としてまとめて見せる（後でrender側で対応）
+       追加：アーティスト×タイプ（ランダム1個）
+       - baseConditions から「アップテンポ/バラード」を消す
+       - 代わりに「アーティストiのバラード」などの複合条件を入れる
+       =============================== */
+    const TYPE_POOL = ["アップテンポ", "バラード", "みんな知っている曲"];
+
+    function getArtists3ForCombo() {
+      const a1 = (document.getElementById("artist1").value || "").trim() || "アーティスト1(未入力)";
+      const a2 = (document.getElementById("artist2").value || "").trim() || "アーティスト2(未入力)";
+      const a3 = (document.getElementById("artist3").value || "").trim() || "アーティスト3(未入力)";
+      return [a1, a2, a3];
+    }
+
+    function pickArtistTypeComboCondition() {
+      const artists3 = getArtists3ForCombo();
+      const artist = artists3[Math.floor(Math.random() * artists3.length)];
+      const type = TYPE_POOL[Math.floor(Math.random() * TYPE_POOL.length)];
+      return { name: `${artist} の ${type}`, cat: "cat-other", isCombo: true };
+    }
+
+    /* ===============================
+       リリース条件（実際に出るのは今まで通り4種）
        =============================== */
     const releaseConditions = [
       { name: "2015–2017年リリース", cat: "cat-release", group: "release" },
@@ -292,13 +301,13 @@
       { name: "2024年以降のリリース", cat: "cat-release", group: "release" },
     ];
 
+    /* ===============================
+       基本条件（アップテンポ/バラード単体は削除済み）
+       =============================== */
     const baseConditions = [
-      { name: "アップテンポ", cat: "cat-other" },
-      { name: "バラード", cat: "cat-other" },
       { name: "みんな知っている曲", cat: "cat-other" },
       { name: "一人だけ知らない曲", cat: "cat-other" },
 
-      // 実際の候補は4つ（今まで通り）
       ...releaseConditions,
 
       { name: "曲名漢字のみ", cat: "cat-title" },
@@ -311,8 +320,8 @@
     ];
 
     /* ===============================
-       追加条件（☑で無しにできる）
-       - アルファ条件は「〇」で表示したい（文言は〇のまま）
+       追加条件（☑で無し）
+       - アルファ条件は〇表示のまま
        =============================== */
     const extraConditions = [
       { name: "夏(冬)の歌(過半数が夏(冬)だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_season" },
@@ -320,7 +329,6 @@
       { name: "失恋ソング", cat: "cat-other", optional: true, optId: "opt_breakup" },
       { name: "ディズニーの曲", cat: "cat-other", optional: true, optId: "opt_disney" },
       { name: "主題歌", cat: "cat-other", optional: true, optId: "opt_theme" },
-      // ここは「〇」表示のまま（マスには〇を置き、内部で letters を保持）
       { name: "〇、〇、〇、〇、〇で始まるアーティスト(〇はランダムアルファベット)", cat: "cat-artist", optional: true, optId: "opt_alpha" },
     ];
 
@@ -333,17 +341,17 @@
 
     /* ===============================
        事前の条件リスト表示
-       - リリース条件は「リリース年度」として表示
-       - アルファ条件は「〇」のまま表示（lettersは見せない）
+       - リリースは「リリース年度」としてまとめて見せる
+       - さらに「アーティスト×タイプ」は説明として出す（実際は生成時にランダム1個追加）
        =============================== */
     function renderConditionList() {
       const ul = document.getElementById("conditionList");
       ul.innerHTML = "";
 
-      // 基本条件表示（release group はまとめる）
       const hasRelease = baseConditions.some(c => c.group === "release");
+
       baseConditions.forEach(c => {
-        if (c.group === "release") return; // 個別は出さない
+        if (c.group === "release") return;
         const li = document.createElement("li");
         li.textContent = c.name;
         ul.appendChild(li);
@@ -355,7 +363,13 @@
         ul.appendChild(li);
       }
 
-      // 入力アーティストも表示
+      // 新仕様の説明（固定リストとして表示）
+      const liCombo = document.createElement("li");
+      liCombo.style.marginTop = "10px";
+      liCombo.style.opacity = "0.9";
+      liCombo.textContent = "{アーティスト1,2,3}×{アップテンポ,バラード,みんな知っている曲} からランダム1個";
+      ul.appendChild(liCombo);
+
       const artists = [...new Set(getArtistsRaw())];
       if (artists.length > 0) {
         const sep = document.createElement("li");
@@ -371,7 +385,6 @@
         });
       }
 
-      // 追加条件（チェック付き）
       const sep2 = document.createElement("li");
       sep2.style.opacity = "0.8";
       sep2.style.marginTop = "10px";
@@ -390,8 +403,6 @@
 
         const label = document.createElement("label");
         label.htmlFor = c.optId;
-
-        // アルファ条件は「〇のまま表示」
         label.textContent = c.name;
 
         row.appendChild(cb);
@@ -401,7 +412,6 @@
       });
     }
 
-    /* 初期表示 */
     pickAlpha5();
     renderConditionList();
 
@@ -437,7 +447,7 @@
       const start = Number(startScore.value);
       const playerCount = Number(document.getElementById("playerCount").value);
 
-      // 生成ごとにアルファ更新（B/S重み付き）
+      // 生成ごとにアルファ更新
       pickAlpha5();
 
       // 候補条件（基本＋チェックONの追加＋入力アーティスト）
@@ -447,7 +457,6 @@
       extraConditions.forEach(c => {
         const cb = document.getElementById(c.optId);
         if (cb && cb.checked) {
-          // アルファ条件は「表示は〇のまま」なので、そのまま追加
           conditions.push({ name: c.name, cat: c.cat, optId: c.optId });
         }
       });
@@ -458,19 +467,13 @@
         conditions.push({ name: `アーティスト：${name}`, cat: "cat-artist" });
       });
 
+      // ★追加：アーティスト×タイプ から「ランダム1個」条件を追加
+      // 例：アーティスト2 の バラード
+      conditions.push(pickArtistTypeComboCondition());
+
       // 少人数時の条件削除
       if (playerCount <= 2) {
         conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
-      }
-
-      /* バラード/アップテンポ制御（今まで通り：どちらか一方だけ） */
-      const tempoConditions = conditions.filter(
-        c => c.name === "バラード" || c.name === "アップテンポ"
-      );
-      if (tempoConditions.length > 0) {
-        const selectedTempo = rand(tempoConditions);
-        conditions = conditions.filter(c => c.name !== "バラード" && c.name !== "アップテンポ");
-        conditions.push(selectedTempo);
       }
 
       /* 年リリース条件は最大2つまで（今まで通り） */
@@ -496,19 +499,16 @@
 
           let name = cond.name;
 
-          // 行/段の埋め込み
           if (name.includes("〇行")) {
             name = name.replace("〇", rand(GYO)).replace("□", rand(DAN));
           }
 
-          // ◯人バンド（3～5）
           if (name.includes("◯人バンド")) {
             const n = 3 + Math.floor(Math.random() * 3);
             name = name.replace("◯", String(n));
           }
 
-          // ★重要：アルファ条件は「〇のまま表示」なので置換しない
-          // ただし、実際に何の文字だったかは data 属性に持たせる（必要なら後で参照できる）
+          // アルファ条件は「〇のまま表示」なので置換しない（内部保持だけ）
           if (cond.optId === "opt_alpha") {
             td.dataset.alpha = alphaLetters.join(",");
           }
@@ -593,7 +593,7 @@
       if (lines.some(line =>
         line.every(([r, c]) => t.rows[r].cells[c].classList.contains("marked"))
       )) {
-        // 元の挙動維持（何もしない）
+        // 元の挙動維持
       }
     }
   </script>
