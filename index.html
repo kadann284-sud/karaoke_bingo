@@ -56,16 +56,15 @@
       cursor: pointer;
     }
 
-    /* ======= ここを変更：固定サイズの3×3グリッド ======= */
+    /* ======= 固定サイズの3×3グリッド ======= */
     table {
       width: 100%;
-      table-layout: fixed; /* 各列の幅を固定して揃える */
+      table-layout: fixed;
       border-collapse: separate;
       border-spacing: 12px;
     }
 
     td {
-      /* “内容の量”に左右されないように固定高さ */
       height: 150px;
       border-radius: 18px;
       text-align: center;
@@ -75,13 +74,12 @@
       box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
       position: relative;
 
-      /* 文字量が多くてもマスを押し出さない */
       overflow: hidden;
       vertical-align: middle;
       padding: 10px;
     }
 
-    /* 条件テキストが長いときは小さめ＋最大2行で省略 */
+    /* 条件テキスト：2行で省略（サイズは固定） */
     .cond-text {
       font-size: 14px;
       line-height: 1.2;
@@ -90,6 +88,23 @@
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+      word-break: break-word;
+    }
+
+    /* 省略時の対処：詳細ボタン（押したら全文モーダル表示） */
+    .info-btn {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      border: none;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.85);
+      color: #000;
+      cursor: pointer;
+      width: auto;
     }
 
     td.marked {
@@ -130,6 +145,7 @@
     .cat-artist { background: #ffd180; }
     .cat-other { background: #e1bee7; }
 
+    /* ======= モーダル（全文表示用） ======= */
     .modal {
       position: fixed;
       inset: 0;
@@ -137,15 +153,52 @@
       display: none;
       align-items: center;
       justify-content: center;
+      padding: 16px;
+      z-index: 9999;
     }
 
     .modal-content {
+      width: min(560px, 100%);
       background: #fff;
       color: #000;
-      padding: 24px 32px;
+      padding: 18px 18px;
       border-radius: 16px;
-      font-size: 32px;
-      font-weight: bold;
+      font-weight: 700;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .modal-title {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .modal-line {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 6px 0;
+      opacity: 0.9;
+    }
+
+    .modal-cond {
+      margin-top: 10px;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .modal-close {
+      margin-top: 14px;
+      width: 100%;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
     }
 
     .conditions-box ul {
@@ -259,8 +312,15 @@
     <table id="bingo"></table>
   </div>
 
-  <div class="modal" id="bingoModal">
-    <div class="modal-content">ビンゴ！</div>
+  <!-- 全文表示モーダル -->
+  <div class="modal" id="detailModal">
+    <div class="modal-content">
+      <div class="modal-title" id="detailTitle">詳細</div>
+      <div class="modal-line" id="detailScoreLine"></div>
+      <div class="modal-line" id="detailRangeLine"></div>
+      <div class="modal-cond" id="detailCond"></div>
+      <button class="modal-close" id="detailClose">閉じる</button>
+    </div>
   </div>
 
   <script>
@@ -274,7 +334,6 @@
     })();
 
     let alphaLetters = [];
-
     function pickAlpha5() {
       const chosen = new Set();
       let guard = 0;
@@ -288,7 +347,7 @@
     }
 
     /* アーティスト×タイプ（ランダム1個） */
-    const TYPE_POOL = ["アップテンポ", "バラード"]; // ←「みんな知っている曲」削除
+    const TYPE_POOL = ["アップテンポ", "バラード"];
 
     function getArtists3ForCombo() {
       const a1 = (document.getElementById("artist1").value || "").trim() || "アーティスト1(未入力)";
@@ -304,7 +363,7 @@
       return { name: `${artist} の ${type}`, cat: "cat-other", isCombo: true };
     }
 
-    /* リリース条件（実際に出るのは今まで通り4種） */
+    /* リリース条件 */
     const releaseConditions = [
       { name: "2015–2017年リリース", cat: "cat-release", group: "release" },
       { name: "2018–2020年リリース", cat: "cat-release", group: "release" },
@@ -312,7 +371,7 @@
       { name: "2024年以降のリリース", cat: "cat-release", group: "release" },
     ];
 
-    /* 基本条件（「みんな知っている曲」削除済み） */
+    /* 基本条件 */
     const baseConditions = [
       { name: "一人だけ知らない曲", cat: "cat-other" },
       ...releaseConditions,
@@ -325,9 +384,7 @@
       { name: "曲名が〇行 or □段", cat: "cat-title" },
     ];
 
-    /* 追加条件（☑で無し）
-       - アルファ条件は「一覧は〇」「マスはアルファに置換」
-    */
+    /* 追加条件（☑で無し） */
     const extraConditions = [
       { name: "夏(冬)の歌(過半数が夏(冬)だと思ったらOK)", cat: "cat-other", optional: true, optId: "opt_season" },
       { name: "◯人バンド（〇は3～5）", cat: "cat-other", optional: true, optId: "opt_band" },
@@ -337,13 +394,11 @@
       { name: "〇、〇、〇、〇、〇で始まるアーティスト(〇はランダムアルファベット)", cat: "cat-artist", optional: true, optId: "opt_alpha" },
     ];
 
-    /* 事前の条件リスト表示（artist1/2/3単体は出さない） */
     function renderConditionList() {
       const ul = document.getElementById("conditionList");
       ul.innerHTML = "";
 
       const hasRelease = baseConditions.some(c => c.group === "release");
-
       baseConditions.forEach(c => {
         if (c.group === "release") return;
         const li = document.createElement("li");
@@ -417,6 +472,32 @@
       return `${low.toFixed(2)}～${high.toFixed(2)}`;
     }
 
+    /* ======= 省略対策：全文モーダル ======= */
+    const detailModal = document.getElementById("detailModal");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailScoreLine = document.getElementById("detailScoreLine");
+    const detailRangeLine = document.getElementById("detailRangeLine");
+    const detailCond = document.getElementById("detailCond");
+    const detailClose = document.getElementById("detailClose");
+
+    function openDetail({ score, range, cond }) {
+      detailTitle.textContent = "条件の詳細";
+      detailScoreLine.textContent = `点数：${score}点`;
+      detailRangeLine.textContent = `範囲：${range}`;
+      detailCond.textContent = cond;
+      detailModal.style.display = "flex";
+    }
+
+    function closeDetail() {
+      detailModal.style.display = "none";
+    }
+
+    detailClose.addEventListener("click", closeDetail);
+    detailModal.addEventListener("click", (e) => {
+      // 背景クリックで閉じる（中身クリックは閉じない）
+      if (e.target === detailModal) closeDetail();
+    });
+
     function generateBingo() {
       document.getElementById("preConditions").style.display = "none";
       const table = document.getElementById("bingo");
@@ -429,7 +510,6 @@
 
       let conditions = [...baseConditions];
 
-      // 追加条件：☑OFFは除外
       extraConditions.forEach(c => {
         const cb = document.getElementById(c.optId);
         if (cb && cb.checked) {
@@ -437,10 +517,9 @@
         }
       });
 
-      // 必ず入れる：アーティスト×{アップテンポ/バラード} からランダム1個
+      // 必ず入れる：アーティスト×{アップテンポ/バラード} ランダム1個
       conditions.push(pickArtistTypeComboCondition());
 
-      // 少人数時の条件削除
       if (playerCount <= 2) {
         conditions = conditions.filter(c => c.name !== "一人だけ知らない曲");
       }
@@ -448,14 +527,9 @@
       // リリース条件は最大2つまで
       const rels = conditions.filter(c => (c.group === "release") || (c.name.includes("リリース")));
       const others = conditions.filter(c => !(c.group === "release") && !c.name.includes("リリース"));
-
-      const selectedReleases = rels
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 2);
-
+      const selectedReleases = rels.sort(() => Math.random() - 0.5).slice(0, 2);
       conditions = [...others, ...selectedReleases];
 
-      // 9マスそろえる
       while (conditions.length < 9) conditions.push(rand(conditions));
       conditions = conditions.sort(() => Math.random() - 0.5).slice(0, 9);
 
@@ -477,26 +551,45 @@
             name = name.replace("◯", String(n));
           }
 
-          // アルファ条件：マスではアルファに置換
+          // アルファ条件：マスではアルファに置換（一覧は〇のまま）
           if (cond.optId === "opt_alpha") {
             const letters = alphaLetters.join("、");
             name = name.replace(/〇、〇、〇、〇、〇/g, letters);
           }
 
           const score = start + Math.floor(Math.random() * 11);
+          const range = formatRange(score);
+
           td.dataset.score = String(score);
+          td.dataset.range = range;
+          td.dataset.cond = name; // ★全文保存
 
           td.className = cond.cat;
+
+          // ★省略対策：ℹ️ボタン追加（押すと全文モーダル）
           td.innerHTML = `
+            <button class="info-btn" type="button">ℹ️ 詳細</button>
             ${score}点
-            <span class="range">${formatRange(score)}</span>
+            <span class="range">${range}</span>
             <div class="cond-text">${name}</div>
           `;
 
+          // マス本体：マーク切替
           td.onclick = () => {
             td.classList.toggle("marked");
             checkBingo();
           };
+
+          // 詳細ボタン：全文表示（マークは切り替えない）
+          const infoBtn = td.querySelector(".info-btn");
+          infoBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openDetail({
+              score: td.dataset.score,
+              range: td.dataset.range,
+              cond: td.dataset.cond
+            });
+          });
         }
       }
 
@@ -537,7 +630,11 @@
           const s = Number(td.dataset.score);
           if (!isFinite(s)) continue;
           const rangeEl = td.querySelector(".range");
-          if (rangeEl) rangeEl.textContent = formatRange(s);
+          if (rangeEl) {
+            const range = formatRange(s);
+            rangeEl.textContent = range;
+            td.dataset.range = range;
+          }
         }
       }
       highlightByCurrentScore();
